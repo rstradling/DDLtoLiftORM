@@ -6,6 +6,7 @@
  * Time: 9:02:51 AM
  * To change this template use File | Settings | File Templates.
  */
+import collection.mutable.HashMap
 import java.io._
 import scala.util.parsing.combinator._
 import scala.io.Source
@@ -58,17 +59,29 @@ class Instruction(val action : String, val actionOn : String, val item : String,
 
 }
 
+class Alter(val action : String, val actionOn : String, val AddOrDrop : String, val restOfInfo : String) {
+  override def toString = "Action=" + action + " actionOn=" + actionOn + " AddorDrop=" + AddOrDrop +
+          " restOfInfo=" + restOfInfo
+}
+
 /**
  * Parses the sql ddl data
  */
 class DDLParser extends RegexParsers {
   def create: Parser[String] = "CREATE"
   def table: Parser[String] = "TABLE"
+  def alter: Parser[String] = "ALTER"
   def item: Parser[String] = """[a-zA-Z_]\w*""".r
+
   def IndexCreate: Parser[Any] = "CREATE INDEX" ~ """.*""".r
   def template : Parser[Any] = instr | IndexCreate
+  def addDrop : Parser[String] = "ADD" | "DROP"
   def instr: Parser[Instruction] = create ~ table ~ item ~ ColumnInfo ~ ";" ^^
           {case create ~ table ~ itm ~ col ~ semi  => new Instruction(create, table, CapitalizeFirstLetter(itm), col) }
+  def alterInstr : Parser[Alter] = alter ~ table ~ item ~ addDrop ~ rest ~ ";" ^^
+          {case alter ~ table ~ tblname ~ addDrp ~ moreInfo ~ semi => new Alter(alter, tblname, addDrp, moreInfo) }
+                        
+  def rest: Parser[String] = """.""".r
   def ColumnInfo : Parser[List[Column]] = "("~> repsep(ColumnData,",") <~")" ^^
           {case data => for (param <- data) yield ((new Parameter(param)).DoMatch()) }
   def ColumnData : Parser[String] = """(\w*\s*)*""".r
@@ -78,6 +91,36 @@ class DDLParser extends RegexParsers {
     firstLetter.toUpperCase() + remainder
   }
 
+  def updateTable(s : Alter) : Unit = {
+    val instruction = TableMap.tableMap(s.actionOn)
+    ()
+  }
+  /**
+   * Matches the input line to the parser above
+   * <p>
+   * Currently does nothing unless it is a CREATE TABLE construct. IGNORES Create INDEX construct, and errors
+   * on anything else
+   */
+  def DoMatch(line : String, lineNum : Int) = {
+    parse(template, line) match {
+      case Success(item, _) => item match {
+                                 case s : Instruction => TableMap.tableMap += s.actionOn -> s
+                                 case s : Alter => updateTable(s)
+                                 case _  => () // Do nothing
+                              }
+      case Failure(msg, _) => val errorMsg = "Error " + msg + " at line number " + lineNum
+                              throw new RuntimeException(errorMsg)
+      case Error(msg, _) => val errorMsg = "Error " + msg + " at line number " + lineNum
+                              throw new RuntimeException(errorMsg)
+    }
+  }
+}
+
+object TableMap {
+  val tableMap = new HashMap[String, Instruction]
+}
+
+object Writer {
   /**
    * Writes the column data to the print stream passed in representing
    * the class information
@@ -156,25 +199,8 @@ class DDLParser extends RegexParsers {
 
   }
 
-  /**
-   * Matches the input line to the parser above
-   * <p>
-   * Currently does nothing unless it is a CREATE TABLE construct. IGNORES Create INDEX construct, and errors
-   * on anything else
-   */
-  def DoMatch(line : String, lineNum : Int) = {
-    parse(template, line) match {
-      case Success(item, _) => item match {
-                                 case s : Instruction => processItem(s)
-                                 case _  => () // Do nothing
-                              }
-      case Failure(msg, _) => val errorMsg = "Error " + msg + " at line number " + lineNum
-                              throw new RuntimeException(errorMsg)
-      case Error(msg, _) => val errorMsg = "Error " + msg + " at line number " + lineNum
-                              throw new RuntimeException(errorMsg)
-    }
-  }
 }
+
 
 object ParseExpr {
   var path : String = _
@@ -185,6 +211,9 @@ object ParseExpr {
     for (line <- Source.fromFile(args(0)).getLines) {
       println("Processing line " + lineNum + " Info= " + parser.DoMatch(line, lineNum))
       lineNum = lineNum + 1
+    }
+    for (item <- TableMap.tableMap) {
+      Writer.processItem(item._2)
     }
   }
 }
