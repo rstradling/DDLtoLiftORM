@@ -6,6 +6,8 @@
  * Time: 9:02:51 AM
  * To change this template use File | Settings | File Templates.
  */
+package com.strad.ddltoliftorm
+
 import collection.mutable.HashMap
 import java.io._
 import scala.util.parsing.combinator._
@@ -59,6 +61,9 @@ class Instruction(val action : String, val actionOn : String, val item : String,
 
 }
 
+/**
+ * Class handles the Alter table DDL syntax
+ */
 class Alter(val action : String, val actionOn : String, val AddOrDrop : String, val restOfInfo : String) {
   override def toString = "Action=" + action + " actionOn=" + actionOn + " AddorDrop=" + AddOrDrop +
           " restOfInfo=" + restOfInfo
@@ -68,31 +73,35 @@ class Alter(val action : String, val actionOn : String, val AddOrDrop : String, 
  * Parses the sql ddl data
  */
 class DDLParser extends RegexParsers {
-  def create: Parser[String] = "CREATE"
-  def table: Parser[String] = "TABLE"
-  def alter: Parser[String] = "ALTER"
-  def item: Parser[String] = """[a-zA-Z_]\w*""".r
+  // Holds the tables that have been read in thus far
+  private val tableMap = new HashMap[String, Instruction]
+  private def create: Parser[String] = "CREATE"
+  private def table: Parser[String] = "TABLE"
+  private def alter: Parser[String] = "ALTER"
+  private def item: Parser[String] = """[a-zA-Z_]\w*""".r
 
-  def IndexCreate: Parser[Any] = "CREATE INDEX" ~ """.*""".r
-  def template : Parser[Any] = instr | IndexCreate
-  def addDrop : Parser[String] = "ADD" | "DROP"
-  def instr: Parser[Instruction] = create ~ table ~ item ~ ColumnInfo ~ ";" ^^
+  private def IndexCreate: Parser[Any] = "CREATE INDEX" ~ """.*""".r
+  private def template : Parser[Any] = instr | IndexCreate
+  private def addDrop : Parser[String] = "ADD" | "DROP"
+  private def instr: Parser[Instruction] = create ~ table ~ item ~ ColumnInfo ~ ";" ^^
           {case create ~ table ~ itm ~ col ~ semi  => new Instruction(create, table, itm, col) }
-  def alterInstr : Parser[Alter] = alter ~ table ~ item ~ addDrop ~ rest ~ ";" ^^
+  private def alterInstr : Parser[Alter] = alter ~ table ~ item ~ addDrop ~ rest ~ ";" ^^
           {case alter ~ table ~ tblname ~ addDrp ~ moreInfo ~ semi => new Alter(alter, tblname, addDrp, moreInfo) }
                         
-  def rest: Parser[String] = """.""".r
-  def ColumnInfo : Parser[List[Column]] = "("~> repsep(ColumnData,",") <~")" ^^
+  private def rest: Parser[String] = """.""".r
+  private def ColumnInfo : Parser[List[Column]] = "("~> repsep(ColumnData,",") <~")" ^^
           {case data => for (param <- data) yield ((new Parameter(param)).DoMatch()) }
-  def ColumnData : Parser[String] = """(\w*\s*)*""".r
-  def CapitalizeFirstLetter(word : String) = {
+  private def ColumnData : Parser[String] = """(\w*\s*)*""".r
+  private def CapitalizeFirstLetter(word : String) = {
     val firstLetter = word.substring(0,1)
     val remainder = word.substring(1)
     firstLetter.toUpperCase() + remainder
   }
 
-  def updateTable(s : Alter) : Unit = {
-    val instruction = TableMap.tableMap(s.actionOn)
+  private def updateTable(s : Alter) : Unit = {
+    val instruction = tableMap(s.actionOn)
+    // Curently not supported
+    assert(false)
     ()
   }
   /**
@@ -101,10 +110,10 @@ class DDLParser extends RegexParsers {
    * Currently does nothing unless it is a CREATE TABLE construct. IGNORES Create INDEX construct, and errors
    * on anything else
    */
-  def DoMatch(line : String, lineNum : Int) = {
+  private def DoMatch(line : String, lineNum : Int) = {
     parse(template, line) match {
       case Success(item, _) => item match {
-                                 case s : Instruction => TableMap.tableMap += s.item -> s
+                                 case s : Instruction => tableMap += s.item -> s
                                  case s : Alter => updateTable(s)
                                  case _  => () // Do nothing
                               }
@@ -114,10 +123,29 @@ class DDLParser extends RegexParsers {
                               throw new RuntimeException(errorMsg)
     }
   }
-}
 
-object TableMap {
-  val tableMap = new HashMap[String, Instruction]
-}
+  /**
+   * processes the statements passed in as DDL
+   * @param statements List of statements
+   * @return List of instructions for the given statements
+   */
+  def processStatements(statements : List[String]) : List[Instruction] = {
+    var lineNum = 0
+    for (line <- statements) {
+      DoMatch(line, lineNum)
+      println("Processing line " + lineNum)
+      lineNum = lineNum + 1
+    }
+    tableMap.map(_._2).toList
 
+  }
+
+  /**
+   * Will process the given file for DDL statements
+   * @param file The filename to open
+   */
+  def processFile(file : String) : List[Instruction] = {
+    processStatements(Source.fromFile(file).getLines.toList)
+  }
+}
 

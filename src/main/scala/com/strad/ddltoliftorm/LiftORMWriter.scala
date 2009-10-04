@@ -1,3 +1,4 @@
+package com.strad.ddltoliftorm
 import java.io.{FileOutputStream, PrintStream}
 
 /**
@@ -8,6 +9,9 @@ import java.io.{FileOutputStream, PrintStream}
  * To change this template use File | Settings | File Templates.
  */
 
+/**
+ * Implementation of the IDDLWriter to go from DDL to Lift's mapper ORM
+ */
 class LiftORMWriter extends IDDLWriter {
   override def writeTables(instructions : List[Instruction], pathToWriteTo : String) : Unit = {
     instructions.foreach(Writer.processItem(_, pathToWriteTo))

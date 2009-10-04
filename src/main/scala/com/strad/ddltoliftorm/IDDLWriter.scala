@@ -6,6 +6,7 @@
  * Time: 11:28:20 AM
  * To change this template use File | Settings | File Templates.
  */
+package com.strad.ddltoliftorm
 
 abstract class IDDLWriter {
   /**

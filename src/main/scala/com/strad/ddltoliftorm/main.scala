@@ -1,3 +1,5 @@
+package com.strad.ddltoliftorm
+
 import io.Source
 
 /**
@@ -17,12 +19,10 @@ object main {
     val inputFile = args(0)
 
     println("Running the processor on file " + inputFile + " using DDLWriter " + ddlwriter + " and exporting to path " + path)
-    for (line <- Source.fromFile(args(0)).getLines) {
-      println("Processing line " + lineNum + " Info= " + parser.DoMatch(line, lineNum))
-      lineNum = lineNum + 1
-    }
-    val instructions : List[Instruction] = TableMap.tableMap.map(_._2).toList
+    val instructions = parser.processFile(args(0))
+
     val writer : IDDLWriter = DDLWriterFactory.createIDDLWriter(ddlwriter)
     writer.writeTables(instructions, path)
+
   }
 }

@@ -1,3 +1,5 @@
+package com.strad.ddltoliftorm
+
 import org.scalatest.junit.{JUnitRunner, JUnit3Suite}
 import org.scalatest.matchers.{MustMatchers}
 import org.scalatest.prop.Checkers
@@ -15,15 +17,16 @@ import org.junit.runner.RunWith
 class CreateTableSpec extends Spec with MustMatchers {
   describe("A DDL Parser") {
     it("must be able to parse CREATE TABLE and create the correct columns") {
-      val x = "CREATE TABLE attributes (id INTEGER PRIMARY KEY, name TEXT, min NUMERIC, max NUMERIC, category INTEGER);"
+      val statement = List("CREATE TABLE attributes (id INTEGER PRIMARY KEY, name TEXT, min NUMERIC, max NUMERIC, category INTEGER);")
       val parser = new DDLParser
-      parser.DoMatch(x, 0)
+
+      val tableList = parser.processStatements(statement)
       // Make sure we have an entry
-      TableMap.tableMap.size must equal (1)
+      tableList.size must equal (1)
       // Make sure the entry's name is == attributes
-      val entry : Option[(String,Instruction)] = TableMap.tableMap.find(_._1 == "attributes")
+      val entry : Option[Instruction] = tableList.find(_.item == "attributes")
       entry.isDefined must equal (true)
-      val instruction : Instruction = entry.get._2
+      val instruction : Instruction = entry.get
       instruction.action must equal ("CREATE")
       instruction.actionOn must equal ("TABLE")
 
@@ -67,10 +70,10 @@ class CreateTableSpec extends Spec with MustMatchers {
       category.typ must equal ("INTEGER")
     }
     it("must error on trying to parse this CREATE TABLE statement") {
-      val statement = "CREATE TABLE"
+      val statement = List("CREATE TABLE")
       val parser = new DDLParser
       intercept[java.lang.RuntimeException] {
-        parser.DoMatch(statement, 0)
+        parser.processStatements(statement)
       }
       ()
     }
