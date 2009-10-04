@@ -77,7 +77,7 @@ class DDLParser extends RegexParsers {
   def template : Parser[Any] = instr | IndexCreate
   def addDrop : Parser[String] = "ADD" | "DROP"
   def instr: Parser[Instruction] = create ~ table ~ item ~ ColumnInfo ~ ";" ^^
-          {case create ~ table ~ itm ~ col ~ semi  => new Instruction(create, table, CapitalizeFirstLetter(itm), col) }
+          {case create ~ table ~ itm ~ col ~ semi  => new Instruction(create, table, itm, col) }
   def alterInstr : Parser[Alter] = alter ~ table ~ item ~ addDrop ~ rest ~ ";" ^^
           {case alter ~ table ~ tblname ~ addDrp ~ moreInfo ~ semi => new Alter(alter, tblname, addDrp, moreInfo) }
                         
@@ -104,7 +104,7 @@ class DDLParser extends RegexParsers {
   def DoMatch(line : String, lineNum : Int) = {
     parse(template, line) match {
       case Success(item, _) => item match {
-                                 case s : Instruction => TableMap.tableMap += s.actionOn -> s
+                                 case s : Instruction => TableMap.tableMap += s.item -> s
                                  case s : Alter => updateTable(s)
                                  case _  => () // Do nothing
                               }
