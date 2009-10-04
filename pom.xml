@@ -88,6 +88,12 @@
              <configuration>
                  <includes>
                      <include>**/*Spec.class</include>
+                     <include>**/test*.class</include>
+                     <include>**/TEST*.class</include>
+                     <include>**/Test*.class</include>
+                     <include>**/*TEST.class</include>
+                     <include>**/*test.class</include>
+                     <include>**/*Test.class</include>
                  </includes>
              </configuration>
           </plugin>
