@@ -11,7 +11,7 @@
   <groupId>com.strad</groupId>
   <artifactId>ddltoliftorm</artifactId>
   <packaging>jar</packaging>
-  <version>1.1-SNAPSHOT</version>
+  <version>0.2-SNAPSHOT</version>
   <name>ddltoliftorm</name>
   <properties>
     <scala.version>2.7.5</scala.version>
